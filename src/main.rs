@@ -1,28 +1,32 @@
-use actix_web::{web, App, HttpServer, Responder, HttpResponse};
-use serde::{Deserialize, Serialize};
+mod entity;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct MyObj {
-    name: String,
-    number: i32,
-}
+use entity::user;
+use actix_web::{middleware, web, App, HttpServer, HttpResponse, HttpRequest};
 
-// #[get("/{id}/{name}")]
-async fn index(info: web::Path<(u32, String)>) -> impl Responder {
-    format!("Hello {}! id:{}", info.1, info.0)
+
+async fn index_post_json(item: web::Json<user::MyObj>, req: HttpRequest) -> HttpResponse {
+    println!("request: {:?}", req);
+    println!("model: {:?}", item);
+
+    HttpResponse::Ok().json(item.0)
 }
 
 async fn index_json() -> HttpResponse {
-    let obj = MyObj{name: String::from("Test"), number: 20};
+    let obj = user::MyObj{name: String::from("Test"), number: 20};
     HttpResponse::Ok().json(obj)
 }
 
+
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+    std::env::set_var("RUST_LOG", "actix_web=info");
+    env_logger::init();
+
     HttpServer::new(|| {
         App::new()
-            .service(web::resource("/").route(web::get().to(index)))
-            .service(web::resource("/json").route(web::get().to(index_json)))
+            .wrap(middleware::Logger::default())
+            .service(web::resource("/json").route(web::post().to(index_json)))
+            .service(web::resource("/").route(web::get().to(index_post_json)))
     })
     .bind("127.0.0.1:8080")?
     .run()
